@@ -25,8 +25,8 @@ def train(args):
     dropout_rate = 0.5
     train_X, train_y = read_data(args.data_limit)    
     model = get_model(dropout_rate, model_weights_filename)
-    checkpointer = ModelCheckpoint(filepath=ckpt_model_weights_filename,verbose=1)
-    model.fit(train_X, train_y, nb_epoch=args.epoch, batch_size=args.batch_size, callbacks=[checkpointer], shuffle="batch")
+    checkpointer = ModelCheckpoint(filepath=ckpt_model_weights_filename, verbose=1)
+    model.fit(train_X, train_y, epochs=args.epoch, batch_size=args.batch_size, callbacks=[checkpointer], shuffle="batch")
     model.save_weights(model_weights_filename, overwrite=True)
 
 def val():
@@ -45,7 +45,7 @@ def val():
     for i, _ in enumerate(pred_classes):
         if _ in multi_val_y[i]:
             true_positive += 1
-    print "true positive rate: ", np.float(true_positive)/len(pred_classes)
+    print "True positive rate: ", np.float(true_positive)/len(pred_classes)
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
