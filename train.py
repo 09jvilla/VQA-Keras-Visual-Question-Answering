@@ -3,21 +3,24 @@ from keras.models import model_from_json#load_model
 from keras.callbacks import ModelCheckpoint
 import os
 import argparse
-from models import *
+#from models import *
+from models_functional import *
 from prepare_data import *
 from constants import *
 
-def get_model(dropout_rate, model_weights_filename):
-    print "Creating Model..."
+def get_model(dropout_rate, model_weights_filename, load_pretrained_weights=False):
+    print("Creating Model...")
     metadata = get_metadata()
     num_classes = len(metadata['ix_to_ans'].keys())
     num_words = len(metadata['ix_to_word'].keys())
 
     embedding_matrix = prepare_embeddings(num_words, embedding_dim, metadata)
     model = vqa_model(embedding_matrix, num_words, embedding_dim, seq_length, dropout_rate, num_classes)
-    if os.path.exists(model_weights_filename):
-        print "Loading Weights..."
+    if os.path.exists(model_weights_filename) and load_pretrained_weights:
+        print("Loading Weights...")
         model.load_weights(model_weights_filename)
+    else:
+        print("Skipping loading weights.")
 
     return model
 
@@ -32,11 +35,11 @@ def train(args):
 def val():
     val_X, val_y, multi_val_y = get_val_data() 
     model = get_model(0.0, model_weights_filename)
-    print "Evaluating Accuracy on validation set:"
+    print("Evaluating Accuracy on validation set:")
     metric_vals = model.evaluate(val_X, val_y)
-    print ""
+    print("")
     for metric_name, metric_val in zip(model.metrics_names, metric_vals):
-        print metric_name, " is ", metric_val
+        print(metric_name + " is " + metric_val)
 
     # Comparing prediction against multiple choice answers
     true_positive = 0
@@ -45,7 +48,7 @@ def val():
     for i, _ in enumerate(pred_classes):
         if _ in multi_val_y[i]:
             true_positive += 1
-    print "True positive rate: ", np.float(true_positive)/len(pred_classes)
+    print("True positive rate: " + np.float(true_positive)/len(pred_classes) )
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
