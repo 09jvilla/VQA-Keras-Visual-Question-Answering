@@ -1,0 +1,56 @@
+After training epoch 10
+loss 2.53969596104
+acc 0.445552702614
+True_positive_rate: 0.573844558562
+After training epoch 20
+loss 2.59171895231
+acc 0.454802817829
+True_positive_rate: 0.58548949898
+After training epoch 30
+loss 2.6666429342
+acc 0.45152742116
+True_positive_rate: 0.582181183751
+After training epoch 40
+loss 2.76133057947
+acc 0.458144051616
+True_positive_rate: 0.587061360195
+After training epoch 50
+loss 2.9734828312
+acc 0.453848179604
+True_positive_rate: 0.581045493449
+After training epoch 60
+loss 3.08288818925
+acc 0.449074988479
+True_positive_rate: 0.577926459938
+After training epoch 70
+loss 3.19416170537
+acc 0.450976035289
+True_positive_rate: 0.577959378498
+After training epoch 80
+loss 3.32517784668
+acc 0.449881493186
+True_positive_rate: 0.577910000658
+After training epoch 90
+loss 3.3803069139
+acc 0.445272894858
+True_positive_rate: 0.572231549147
+After training epoch 100
+loss 3.44215128993
+acc 0.44325663309
+True_positive_rate: 0.571375666601
+After training epoch 110
+loss 3.59010591192
+acc 0.445618539733
+True_positive_rate: 0.572865231417
+After training epoch 120
+loss 3.57882701399
+acc 0.442162090987
+True_positive_rate: 0.569573375469
+After training epoch 130
+loss 3.56316372533
+acc 0.443478833366
+True_positive_rate: 0.570207057739
+After training epoch 140
+loss 3.66727998125
+acc  0.44004707354
+True_positive_rate: 0.567499506222

@@ -14,7 +14,6 @@ def get_model(dropout_rate, model_weights_filename, load_pretrained_weights=Fals
     metadata = get_metadata()
     num_classes = len(metadata['ix_to_ans'].keys())
     num_words = len(metadata['ix_to_word'].keys())
-
     embedding_matrix = prepare_embeddings(num_words, embedding_dim, metadata)
     model = vqa_model(embedding_matrix, num_words, embedding_dim, seq_length, dropout_rate, num_classes)
     if os.path.exists(model_weights_filename) and load_pretrained_weights:
@@ -27,8 +26,9 @@ def get_model(dropout_rate, model_weights_filename, load_pretrained_weights=Fals
 
 def train(args):
     dropout_rate = 0.5
-    train_X, train_y = read_data(args.data_limit)    
-    model = get_model(dropout_rate, model_weights_filename)
+    train_X, train_y = read_data(args.data_limit)
+    print("load_weights ", args.load_weights)
+    model = get_model(dropout_rate, model_weights_filename, load_pretrained_weights=args.load_weights)
     checkpointer = ModelCheckpoint(filepath=ckpt_model_weights_filename, verbose=1)
     model.fit(train_X, train_y, epochs=args.epoch, batch_size=args.batch_size, callbacks=[checkpointer], shuffle="batch")
     model.save_weights(model_weights_filename, overwrite=True)
@@ -36,7 +36,7 @@ def train(args):
 
 def val():
     val_X, val_y, multi_val_y = get_val_data() 
-    model = get_model(0.0, model_weights_filename)
+    model = get_model(0.0, model_weights_filename, load_pretrained_weights=True)
     print("Evaluating Accuracy on validation set:")
     metric_vals = model.evaluate(val_X, val_y)
     metrics = zip(model.metrics_names, metric_vals)
@@ -57,16 +57,16 @@ def val():
 
 
 def loop(args):
-    for i in range(args.num_loops):
+    for i in range(1, args.num_loops + 1):
         model = train(args)
         if args.save_all:
             model.save_weights(model_weights_filename+"_epoch_"+str(i*args.epoch), overwrite=False)
         metrics, true_positive_rate = val()
         with open("training_log", "a") as val_log:
-            val_log.write("After training epoch ", args.epoch * i)
+            val_log.write("After training epoch " + str(args.epoch * i)+"\n")
             for name, value in metrics:
-                val_log.write(name, value)
-            val_log.write("True_positive_rate: ", true_positive_rate)
+                val_log.write(name + " " + str(value)+"\n")
+            val_log.write("True_positive_rate: " + str(true_positive_rate)+"\n")
         print("Finished loop number: ", i)
 
 if __name__ == "__main__":
@@ -77,6 +77,7 @@ if __name__ == "__main__":
     parser.add_argument('--data_limit', type=int, default=215359, help='Number of data points to fed for training')
     parser.add_argument('--num_loops', type=int, default=1)
     parser.add_argument('--save_all', type=bool, default=False)
+    parser.add_argument('--load_weights', type=bool, default=True)
     args = parser.parse_args()
 
     if args.type == 'train':
