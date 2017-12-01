@@ -8,6 +8,8 @@ import argparse
 from models_functional import *
 from prepare_data import *
 from constants import *
+import matplotlib.pyplot as plt
+
 
 def get_model(dropout_rate, model_weights_filename, load_pretrained_weights=False):
     print("Creating Model...")
@@ -27,12 +29,38 @@ def get_model(dropout_rate, model_weights_filename, load_pretrained_weights=Fals
 def train(args):
     dropout_rate = 0.5
     train_X, train_y = read_data(args.data_limit)
+    val_X, val_y, multi_val_y = get_val_data()
     print("load_weights ", args.load_weights)
     model = get_model(dropout_rate, model_weights_filename, load_pretrained_weights=args.load_weights)
     checkpointer = ModelCheckpoint(filepath=ckpt_model_weights_filename, verbose=1)
-    model.fit(train_X, train_y, epochs=args.epoch, batch_size=args.batch_size, callbacks=[checkpointer], shuffle="batch")
+    history = model.fit(train_X, train_y, epochs=args.epoch, batch_size=args.batch_size, callbacks=[checkpointer], shuffle="batch", validation_data=(val_X, val_y))
     model.save_weights(model_weights_filename, overwrite=True)
-    return model
+    plot_training_history(history, "model")
+    return model, history
+
+def plot_training_history(history, save_filename=None):
+    # summarize history for accuracy
+    plt.plot(history.history['acc'], marker='o', linestyle='--')
+    plt.plot(history.history['val_acc'], marker='o', linestyle='--')
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.show()
+    if save_filename:
+        plt.savefig(str(save_filename) + "_acc.png")
+    # summarize history for loss
+    plt.close()
+    plt.plot(history.history['loss'], marker='o', linestyle='--')
+    plt.plot(history.history['val_loss'], marker='o', linestyle='--')
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.show()
+    if save_filename:
+        plt.savefig(str(save_filename) + "_loss.png")
+
 
 def val():
     val_X, val_y, multi_val_y = get_val_data() 
@@ -58,7 +86,7 @@ def val():
 
 def loop(args):
     for i in range(1, args.num_loops + 1):
-        model = train(args)
+        model, _ = train(args)
         if args.save_all:
             model.save_weights(model_weights_filename+"_epoch_"+str(i*args.epoch), overwrite=False)
         metrics, true_positive_rate = val()
