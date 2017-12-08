@@ -33,9 +33,10 @@ def train(args):
     print("load_weights ", args.load_weights)
     model = get_model(dropout_rate, model_weights_filename, load_pretrained_weights=args.load_weights)
     checkpointer = ModelCheckpoint(filepath=ckpt_model_weights_filename, verbose=1)
-    history = model.fit(train_X, train_y, epochs=args.epoch, batch_size=args.batch_size, callbacks=[checkpointer], shuffle="batch", validation_data=(val_X, val_y))
+    history = model.fit(train_X, train_y, epochs=args.epoch, batch_size=args.batch_size, callbacks=[checkpointer],
+                        shuffle="batch", validation_data=(val_X, val_y))
     model.save_weights(model_weights_filename, overwrite=True)
-    plot_training_history(history, "model")
+    plot_training_history(history, "model_embed")
     return model, history
 
 def plot_training_history(history, save_filename=None):
@@ -45,10 +46,10 @@ def plot_training_history(history, save_filename=None):
     plt.title('model accuracy')
     plt.ylabel('accuracy')
     plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
-    plt.show()
+    plt.legend(['train', 'val'], loc='upper left')
     if save_filename:
         plt.savefig(str(save_filename) + "_acc.png")
+    # plt.show()
     # summarize history for loss
     plt.close()
     plt.plot(history.history['loss'], marker='o', linestyle='--')
@@ -56,10 +57,10 @@ def plot_training_history(history, save_filename=None):
     plt.title('model loss')
     plt.ylabel('loss')
     plt.xlabel('epoch')
-    plt.legend(['train', 'test'], loc='upper left')
-    plt.show()
+    plt.legend(['train', 'val'], loc='upper left')
     if save_filename:
         plt.savefig(str(save_filename) + "_loss.png")
+    # plt.show()
 
 
 def val():
