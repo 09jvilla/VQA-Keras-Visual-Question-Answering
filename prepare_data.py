@@ -33,7 +33,6 @@ def read_data(data_limit):
     # NOTE should've consturcted one-hots using exhausitve list of answers, cause some answers may not be in dataset
     # To temporarily rectify this, all those answer indices is set to 1 in validation set
     train_y = to_categorical(ques_data['answers'])[:data_limit, :]
-
     return train_X, train_y
 
 def get_val_data():
@@ -76,6 +75,20 @@ def get_val_data():
 
     return val_X, abs_val_y, multi_val_y
 
+def get_soft_trainX():
+    ques_data = h5py.File(data_prepo)
+    metadata = get_metadata()
+    with open(train_annotations_path, 'r') as an_file:
+        annotations = json.loads(an_file.read())
+
+    ans_to_ix = {str(ans):int(i) for i,ans in metadata['ix_to_ans'].items()}
+    ques_annotations = {}
+    for a in annotations['annotations']:
+        ques_annotations[a['question_id']] = a
+
+    soft_train_y = [list(set([ans_to_ix.get(ans['answer'].lower()) for ans in ques_annotations[ques_id]['answers']])) for ques_id in ques_data['question_id_train']]
+    for i, ys in enumerate(soft_train_y):
+        soft_train_y[i] = [1 if ans in [None, 1000] else ans for ans in ys]
 
 def get_metadata():
     meta_data = json.load(open(data_prepo_meta, 'r'))

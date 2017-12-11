@@ -44,6 +44,7 @@ def test_kernel_approximation(model, m):
     ratio = cbp_kernel / bp_kernel
     print("ratio between Compact Bilinear Pooling (CBP) and Bilinear Pooling (BP):")
     print(ratio)
+    print(np.abs(ratio - 1))
     assert(np.all(np.abs(ratio - 1) < 2e-2))
     print("Passed.")
 
@@ -60,6 +61,6 @@ def cbp(model, input1, input2):
 
 def main():
     model = mcb_model()
-    test_kernel_approximation(model=model, m=24)
+    test_kernel_approximation(model=model, m=4)
 if __name__ == '__main__':
     main()

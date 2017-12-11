@@ -161,20 +161,13 @@ class CompactBilinearPooling(Layer):
         for i in range(self.nmodes):
             if self.h[i] is None:
                 self.h[i] = np.random.random_integers(0, self.d-1, size=(input_shapes[i][1],))
+                self.h[i] = K.variable(self.h[i], dtype='int64', name='h' + str(i))
             if self.s[i] is None:
                 self.s[i] = (np.floor(np.random.uniform(0, 2, size=(input_shapes[i][1],)))*2-1).astype('float32')
-            if self.sparse_matrix[i] is None:
-                indices = np.concatenate((np.arange(input_shapes[i][1])[..., np.newaxis],
-                                          self.h[i][..., np.newaxis]), axis=1)
-                self.sparse_matrix[i] = tf.sparse_reorder(
-                    tf.SparseTensor(indices, self.s[i], [input_shapes[i][1], self.d]))
-
-            self.h[i] = K.variable(self.h[i], dtype='int64', name='h' + str(i))
-            self.s[i] = K.variable(self.s[i], dtype='float32', name='s' + str(i))
+                self.s[i] = K.variable(self.s[i], dtype='float32', name='s' + str(i))
 
         self.non_trainable_weights = [*self.h, *self.s]
         super(CompactBilinearPooling, self).build(input_shapes)
-        self.built = True
 
     def call(self, x, mask=None):
         if type(x) is not list or len(x) <= 1:
@@ -211,6 +204,7 @@ class CompactBilinearPooling(Layer):
         return dict(list(base_config.items()) + list(config.items()))
 
     def multimodal_compact_bilinear(self, x):
+        self.generate_sketch_matrix()
         x0, x1 = x
 
         v0 = tf.transpose(tf.sparse_tensor_dense_matmul(self.sparse_matrix[0], x0, adjoint_a=True, adjoint_b=True))
@@ -221,12 +215,71 @@ class CompactBilinearPooling(Layer):
 
         accum = fft_v0 * fft_v1
         out = tf.real(tf.ifft(accum))
-        out = K.sqrt(K.relu(out))
-        out = K.l2_normalize(out, -1)
         if self.return_extra:
             return [out] + [v0, v1] + [fft_v0, fft_v1] + [accum]
         else:
             return out
+
+    def generate_sketch_matrix(self):
+        for i in range(len(self.sparse_matrix)):
+            if self.sparse_matrix[i] is None:
+                input_dim = self.h[i].get_shape().as_list()[0]
+                indices = tf.concat([tf.expand_dims(tf.range(input_dim, dtype='int64'), -1),
+                                     tf.expand_dims(self.h[i], -1)], 1)
+                sparse_sketch_matrix = tf.sparse_reorder(
+                    tf.SparseTensor(indices, self.s[i], [input_dim, self.d]))
+                self.sparse_matrix[i] = sparse_sketch_matrix
+
+
+class BilinearPooling(Layer):
+
+    def __init__(self, **kwargs):
+
+        # layer parameters
+        self.inbound_nodes = []
+        self.outbound_nodes = []
+        self.constraints = {}
+        self.regularizers = []
+        self.trainable_weights = []
+        self.non_trainable_weights = []
+        self.supports_masking = True
+        self.trainable = False
+        self.uses_learning_phase = False
+        self.input_spec = None  # compatible with whatever
+        super(BilinearPooling, self).__init__(**kwargs)
+
+    def build(self, input_shapes):
+        self.trainable_weights = []
+        self.nmodes = len(input_shapes)
+        for i, s in enumerate(input_shapes):
+            if s != input_shapes[0]:
+                raise Exception('The input size of all vectors must be the same: '
+                                'shape of vector on position ' + str(i) + ' (0-based) ' + str(
+                    s) + ' != shape of vector on position 0 ' + str(input_shapes[0]))
+        self.built = True
+
+    def multimodal_bilinear(self, x):
+
+        v0, v1 = x
+        fft_v0 = tf.fft(tf.complex(real=v0, imag=tf.zeros_like(v0)))
+        fft_v1 = tf.fft(tf.complex(real=v1, imag=tf.zeros_like(v1)))
+
+        accum = fft_v0 * fft_v1
+        return tf.real(tf.ifft(accum))
+
+    def call(self, x, mask=None):
+        if type(x) is not list or len(x) <= 1:
+            raise Exception('BilinearPooling must be called on a list of tensors '
+                            '(at least 2). Got: ' + str(x))
+        return self.multimodal_bilinear(x)
+
+    def get_config(self):
+        base_config = super(BilinearPooling, self).get_config()
+        return dict(list(base_config.items()))
+
+    def compute_output_shape(self, input_shape):
+        assert type(input_shape) is list  # must have mutiple input shape tuples
+        return input_shape[0]
 
 
 
@@ -236,15 +289,15 @@ def bili_pooling(x):
     m, c = x0.get_shape().as_list()
 
     # Bilinear pooling
-    b1 = K.reshape(x0, (m, c, 1))
-    b2 = K.reshape(x1, (m, 1, c))
-    d = K.reshape(K.batch_dot(b1, b2), (m, c, c))
+    b1 = K.reshape(x0, [-1, c, 1])
+    b2 = K.reshape(x1, [-1, 1, c])
+    d = K.reshape(K.batch_dot(b1, b2), [-1, c, c])
     d = K.sum(d, 1)
 
     # Flatten
-    d = K.reshape(d, (m, c * c))
+    d = K.reshape(d, [-1, c * c])
 
-    # Normalize
-    d = K.sqrt(K.relu(d))
-    d = K.l2_normalize(d, -1)
+    # # Normalize
+    # d = K.sqrt(K.relu(d))
+    # d = K.l2_normalize(d, -1)
     return d

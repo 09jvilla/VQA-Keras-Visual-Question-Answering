@@ -34,16 +34,29 @@ def train(args):
     model = get_model(dropout_rate, model_weights_filename, load_pretrained_weights=args.load_weights)
     checkpointer = ModelCheckpoint(filepath=ckpt_model_weights_filename, verbose=1)
     history = model.fit(train_X, train_y, epochs=args.epoch, batch_size=args.batch_size, callbacks=[checkpointer],
-                        shuffle="batch", validation_data=(val_X, val_y))
+                        shuffle="batch", validation_data=(val_X, val_y), initial_epoch=args.initial_epoch)
     model.save_weights(model_weights_filename, overwrite=True)
-    plot_training_history(history, "model_embed")
+    plot_training_history(history, initial_epoch=args.initial_epoch)
+    save_training_history(history)
     return model, history
 
-def plot_training_history(history, save_filename=None):
+def save_training_history(history, save_filename=history_filename):
+    train_loss = history.history['loss']
+    train_acc = history.history['acc']
+    val_loss = history.history['val_loss']
+    val_acc = history.history['val_acc']
+
+    with open(save_filename, "a") as file:
+        for tl, ta, vl, va in zip(train_loss, train_acc, val_loss, val_acc):
+            line = '{}, {}, {}, {}\n'.format(tl, ta, vl, va)
+            file.write(line)
+
+def plot_training_history(history, save_filename=model_name, initial_epoch=1):
+    epochs = range(initial_epoch, initial_epoch + len(history.history['acc']))
     # summarize history for accuracy
-    plt.plot(history.history['acc'], marker='o', linestyle='--')
-    plt.plot(history.history['val_acc'], marker='o', linestyle='--')
-    plt.title('model accuracy')
+    plt.plot(epochs, history.history['acc'], marker='o', linestyle='--')
+    plt.plot(epochs, history.history['val_acc'], marker='o', linestyle='--')
+    plt.title(model_name + ' Accuracy')
     plt.ylabel('accuracy')
     plt.xlabel('epoch')
     plt.legend(['train', 'val'], loc='upper left')
@@ -52,9 +65,9 @@ def plot_training_history(history, save_filename=None):
     # plt.show()
     # summarize history for loss
     plt.close()
-    plt.plot(history.history['loss'], marker='o', linestyle='--')
-    plt.plot(history.history['val_loss'], marker='o', linestyle='--')
-    plt.title('model loss')
+    plt.plot(epochs, history.history['loss'], marker='o', linestyle='--')
+    plt.plot(epochs, history.history['val_loss'], marker='o', linestyle='--')
+    plt.title(model_name + ' Loss')
     plt.ylabel('loss')
     plt.xlabel('epoch')
     plt.legend(['train', 'val'], loc='upper left')
@@ -102,6 +115,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--type', type=str, default='train')
     parser.add_argument('--epoch', type=int, default=10)
+    parser.add_argument('--initial_epoch', type=int, default=0)
     parser.add_argument('--batch_size', type=int, default=256)
     parser.add_argument('--data_limit', type=int, default=215359, help='Number of data points to fed for training')
     parser.add_argument('--num_loops', type=int, default=1)
