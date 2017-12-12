@@ -1,5 +1,6 @@
 from data_processing import *
 from keras.callbacks import ModelCheckpoint
+import matplotlib.pyplot as plt
 
 def train(epoch=10, batch_size=256, data_limit=215359, model_type="VGG19", model_obj=None):
     dropout_rate = 0.5
@@ -40,3 +41,26 @@ def val(model_obj, model_type="VGG19"):
         if _ in multi_val_y[i]:
             true_positive += 1
     print("True positive rate: " +  str(np.float(true_positive)/len(pred_classes)))
+
+def plot_training_history(history, save_filename=None):
+    # summarize history for accuracy
+    plt.plot(history.history['acc'], marker='o', linestyle='--')
+    plt.plot(history.history['val_acc'], marker='o', linestyle='--')
+    plt.title('model accuracy')
+    plt.ylabel('accuracy')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.show()
+    if save_filename:
+        plt.savefig(str(save_filename) + "_acc.png")
+    # summarize history for loss
+    plt.close()
+    plt.plot(history.history['loss'], marker='o', linestyle='--')
+    plt.plot(history.history['val_loss'], marker='o', linestyle='--')
+    plt.title('model loss')
+    plt.ylabel('loss')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'test'], loc='upper left')
+    plt.show()
+    if save_filename:
+        plt.savefig(str(save_filename) + "_loss.png")
