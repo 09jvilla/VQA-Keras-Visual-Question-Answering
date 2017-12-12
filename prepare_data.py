@@ -75,7 +75,11 @@ def get_val_data():
 
     return val_X, abs_val_y, multi_val_y
 
-def get_soft_trainX():
+def get_soft_train_y(data_limit):
+    if os.path.exists(soft_train_y_filename):
+        with h5py.File(soft_train_y_filename) as f:
+            return np.array(f['soft_train_y'])
+
     ques_data = h5py.File(data_prepo)
     metadata = get_metadata()
     with open(train_annotations_path, 'r') as an_file:
@@ -86,9 +90,46 @@ def get_soft_trainX():
     for a in annotations['annotations']:
         ques_annotations[a['question_id']] = a
 
-    soft_train_y = [list(set([ans_to_ix.get(ans['answer'].lower()) for ans in ques_annotations[ques_id]['answers']])) for ques_id in ques_data['question_id_train']]
-    for i, ys in enumerate(soft_train_y):
-        soft_train_y[i] = [1 if ans in [None, 1000] else ans for ans in ys]
+    m = min(len(ques_data['question_id_train']), data_limit)
+    num_classes = 1000
+    soft_train_y = np.zeros((m, num_classes))
+
+    for i, ques_id in enumerate(ques_data['question_id_train']):
+        if i < m:
+            num_ans = len(ques_annotations[ques_id]['answers'])
+            for ans in ques_annotations[ques_id]['answers']:
+                ix = ans_to_ix.get(ans['answer'].lower())
+                ix = 1 if ix in [None, 1000] else ix
+                soft_train_y[i, ix] += 1./num_ans
+    with h5py.File(soft_train_y_filename, 'w') as f:
+        f.create_dataset('soft_train_y', data=soft_train_y)
+
+    return soft_train_y
+
+def get_soft_val_y():
+    ques_data = h5py.File(data_prepo)
+    metadata = get_metadata()
+    with open(val_annotations_path, 'r') as an_file:
+        annotations = json.loads(an_file.read())
+
+    ans_to_ix = {str(ans):int(i) for i,ans in metadata['ix_to_ans'].items()}
+    ques_annotations = {}
+    for a in annotations['annotations']:
+        ques_annotations[a['question_id']] = a
+
+    m = len(ques_data['question_id_test'])
+    num_classes = 1000
+    soft_val_y = np.zeros((m, num_classes))
+
+    for i, ques_id in enumerate(ques_data['question_id_test']):
+        if i < m:
+            num_ans = len(ques_annotations[ques_id]['answers'])
+            for ans in ques_annotations[ques_id]['answers']:
+                ix = ans_to_ix.get(ans['answer'].lower())
+                ix = 1 if ix in [None, 1000] else ix
+                soft_val_y[i, ix] += 1./num_ans
+
+    return soft_val_y
 
 def get_metadata():
     meta_data = json.load(open(data_prepo_meta, 'r'))

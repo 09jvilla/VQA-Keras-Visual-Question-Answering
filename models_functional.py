@@ -1,12 +1,11 @@
-from keras.models import Sequential, Model
-from keras.layers import Dense, Activation, Dropout, LSTM, Flatten, \
-    Embedding, Merge, Input, Multiply, Concatenate, Lambda
-from keras.layers.convolutional import Convolution2D, MaxPooling2D, ZeroPadding2D
+from keras.models import Model
+from keras.layers import Dense, Dropout, LSTM, \
+    Embedding, Input, Multiply, Concatenate
 from keras.optimizers import RMSprop
-from compact_bilinear_pooling import CompactBilinearPooling, BilinearPooling, bili_pooling
-from keras import regularizers
-import h5py
-#
+import keras.backend as K
+from compact_bilinear_pooling import CompactBilinearPooling
+import tensorflow as tf
+
 # def Word2VecModel(embedding_matrix, num_words, embedding_dim, seq_length, dropout_rate):
 #     print("Creating functional text model...")
 #     input_q = Input((seq_length,))
@@ -23,18 +22,18 @@ def Word2VecModel(embedding_matrix, num_words, embedding_dim, seq_length, dropou
     print("Creating functional text model with both layers...")
     input_q = Input((seq_length,))
     x = Embedding(num_words, embedding_dim, weights=[embedding_matrix], trainable=False)(input_q)
-    lstm1, state_h1, state_c1 = LSTM(units=512, return_sequences=True, return_state=True, kernel_regularizer=regularizers.l2(0.01))(x)
+    lstm1, state_h1, state_c1 = LSTM(units=512, return_sequences=True, return_state=True)(x)
     lstm1 = Dropout(dropout_rate)(lstm1)
-    lstm2, state_h2, state_c2 = LSTM(units=512, return_sequences=False, return_state=True, kernel_regularizer=regularizers.l2(0.01))(lstm1)
+    lstm2, state_h2, state_c2 = LSTM(units=512, return_sequences=False, return_state=True)(lstm1)
     concat = Concatenate()([state_h1, state_c1, state_h2, state_c2])
     concat = Dropout(dropout_rate)(concat)
-    q_embedding = Dense(1024, activation='relu', kernel_regularizer=regularizers.l2(0.01))(concat)
+    q_embedding = Dense(1024, activation='tanh')(concat)
     return input_q, q_embedding
 
 def img_model(dropout_rate):
     print("Creating functional image model...")
     input_img = Input((4096,))
-    img_embedding = Dense(1024, input_dim=4096, activation='relu', kernel_regularizer=regularizers.l2(0.01))(input_img)
+    img_embedding = Dense(1024, input_dim=4096, activation='tanh')(input_img)
     return input_img, img_embedding
 
 def vqa_model(embedding_matrix, num_words, embedding_dim, seq_length, dropout_rate, num_classes):
@@ -43,12 +42,12 @@ def vqa_model(embedding_matrix, num_words, embedding_dim, seq_length, dropout_ra
     print("Merging final model...")
     combined = combine(img_embedding, q_embedding)
     combined = Dropout(dropout_rate)(combined)
-    combined = Dense(1000, activation='relu', kernel_regularizer=regularizers.l2(0.01))(combined)
+    combined = Dense(1000, activation='tanh')(combined)
     combined = Dropout(dropout_rate)(combined)
-    predictions = Dense(num_classes, activation='softmax', kernel_regularizer=regularizers.l2(0.01))(combined)
+    predictions = Dense(num_classes, activation='softmax')(combined)
     fc_model = Model(inputs=[input_img, input_q], outputs=predictions)
     optimizer = RMSprop(lr=0.001)
-    fc_model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=['accuracy'])
+    fc_model.compile(optimizer=optimizer, loss='categorical_crossentropy', metrics=["acc", vqa_eval_accuracy])
     return fc_model
 
 # # Multiply combine
@@ -58,16 +57,13 @@ def vqa_model(embedding_matrix, num_words, embedding_dim, seq_length, dropout_ra
 # Multimodal Compact Bilinear Pooling Combine
 def combine(img_embedding, q_embedding):
     return CompactBilinearPooling(16000)([img_embedding, q_embedding])
-#
-# # Bilinear Pooling Combine
-# def combine(img_embedding, q_embedding):
-#     return BilinearPooling()([img_embedding, q_embedding])
 
-# # Bilinear Pooling Combine
-# def combine(img_embedding, q_embedding):
-#     return Lambda(bili_pooling)([img_embedding, q_embedding])
 
-# # Multimodal Compact Bilinear Pooling Combine
-# def combine(img_embedding, q_embedding):
-#     return Concatenate(axis=-1)([img_embedding, q_embedding])
-#
+def vqa_eval_accuracy(y_true, y_pred):
+    trues = K.clip(y_true, min_value=0, max_value=0.3) / 0.3
+    preds = K.argmax(y_pred, axis=-1)
+    return K.map_fn(gather, [trues, preds], dtype=tf.float32)
+
+def gather(x):
+    true, pred = x
+    return K.gather(true, pred)

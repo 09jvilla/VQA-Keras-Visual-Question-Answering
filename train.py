@@ -1,14 +1,11 @@
 from __future__ import print_function
-import numpy as np
-from keras.models import model_from_json#load_model
 from keras.callbacks import ModelCheckpoint
-import os
 import argparse
-#from models import *
 from models_functional import *
 from prepare_data import *
 from constants import *
 import matplotlib.pyplot as plt
+from keras.utils import plot_model
 
 
 def get_model(dropout_rate, model_weights_filename, load_pretrained_weights=False):
@@ -29,10 +26,12 @@ def get_model(dropout_rate, model_weights_filename, load_pretrained_weights=Fals
 def train(args):
     dropout_rate = 0.5
     train_X, train_y = read_data(args.data_limit)
+    train_y = get_soft_train_y(args.data_limit)
     val_X, val_y, multi_val_y = get_val_data()
+    val_y = get_soft_val_y()
     print("load_weights ", args.load_weights)
     model = get_model(dropout_rate, model_weights_filename, load_pretrained_weights=args.load_weights)
-    checkpointer = ModelCheckpoint(filepath=ckpt_model_weights_filename, verbose=1)
+    checkpointer = ModelCheckpoint(filepath=ckpt_model_weights_filename, verbose=1, save_best_only=True, monitor='val_acc')
     history = model.fit(train_X, train_y, epochs=args.epoch, batch_size=args.batch_size, callbacks=[checkpointer],
                         shuffle="batch", validation_data=(val_X, val_y), initial_epoch=args.initial_epoch)
     model.save_weights(model_weights_filename, overwrite=True)
@@ -45,10 +44,12 @@ def save_training_history(history, save_filename=history_filename):
     train_acc = history.history['acc']
     val_loss = history.history['val_loss']
     val_acc = history.history['val_acc']
+    train_vqa_eval_accuracy = history.history['vqa_eval_accuracy']
+    val_vqa_eval_accuracy = history.history['val_vqa_eval_accuracy']
 
     with open(save_filename, "a") as file:
-        for tl, ta, vl, va in zip(train_loss, train_acc, val_loss, val_acc):
-            line = '{}, {}, {}, {}\n'.format(tl, ta, vl, va)
+        for tl, ta, te, vl, va, ve in zip(train_loss, train_acc, train_vqa_eval_accuracy, val_loss, val_acc, val_vqa_eval_accuracy):
+            line = '{}, {}, {}, {}, {}, {}\n'.format(tl, ta, te, vl, va, ve)
             file.write(line)
 
 def plot_training_history(history, save_filename=model_name, initial_epoch=1):
@@ -74,11 +75,24 @@ def plot_training_history(history, save_filename=model_name, initial_epoch=1):
     if save_filename:
         plt.savefig(str(save_filename) + "_loss.png")
     # plt.show()
-
+    # summarize history for loss
+    plt.close()
+    plt.plot(epochs, history.history['vqa_eval_accuracy'], marker='o', linestyle='--')
+    plt.plot(epochs, history.history['val_vqa_eval_accuracy'], marker='o', linestyle='--')
+    plt.title(model_name + ' VQA Eval Accuracy')
+    plt.ylabel('VQA Eval Accuracy')
+    plt.xlabel('epoch')
+    plt.legend(['train', 'val'], loc='upper left')
+    if save_filename:
+        plt.savefig(str(save_filename) + "_vqa_acc.png")
+    # plt.show()
 
 def val():
-    val_X, val_y, multi_val_y = get_val_data() 
+    val_X, val_y, multi_val_y = get_val_data()
+    val_y = get_soft_val_y()
     model = get_model(0.0, model_weights_filename, load_pretrained_weights=True)
+    plot_model(model, to_file=model_name+'_full.png', show_shapes=True, show_layer_names=False)
+    plot_model(model, to_file=model_name+'.png', show_shapes=False, show_layer_names=False)
     print("Evaluating Accuracy on validation set:")
     metric_vals = model.evaluate(val_X, val_y)
     metrics = zip(model.metrics_names, metric_vals)
