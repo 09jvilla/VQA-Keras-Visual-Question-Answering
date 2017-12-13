@@ -1,5 +1,5 @@
-from final_project.data_processing import *
-from final_project.keras_tensorflow_compact_bilinear_pooling import *
+from data_processing import *
+from keras_tensorflow_compact_bilinear_pooling import *
 
 def img_model(dropout_rate):
     print("Creating functional image model...")
