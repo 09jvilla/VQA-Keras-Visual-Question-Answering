@@ -2,7 +2,7 @@ from data_processing import *
 from keras.callbacks import ModelCheckpoint
 import matplotlib.pyplot as plt
 
-def train(epoch=10, batch_size=256, data_limit=215359, model_type="VGG19", model_obj=None):
+def train(epoch=10, batch_size=256, data_limit=215359, model_type="VGG19", model_obj=None, loss_type="Categorical"):
     dropout_rate = 0.5
     
     if model_type=="VGG19":
@@ -11,6 +11,10 @@ def train(epoch=10, batch_size=256, data_limit=215359, model_type="VGG19", model
     else:
         train_X, train_y = read_data(data_limit, data_img=resnet_train_img, embedding_img_dim=2048)        
         val_X, val_y, multi_val_y = get_val_data(data_img=resnet_test_img, embedding_img_dim=2048)
+
+    if loss_type.lower() == "soft":
+        train_y = get_soft_train_y(data_limit)
+        val_y = get_soft_val_y()
 
     checkpointer = ModelCheckpoint(filepath=ckpt_model_weights_filename, verbose=1, monitor='loss', save_best_only=False)
     #history = model_obj.fit(train_X, train_y, epochs=epoch, batch_size=batch_size,
@@ -21,11 +25,14 @@ def train(epoch=10, batch_size=256, data_limit=215359, model_type="VGG19", model
 
     return model_obj, history
     
-def val(model_obj, model_type="VGG19"):
+def val(model_obj, model_type="VGG19", loss_type="One-Categorical"):
     if model_type=="VGG19":
         val_X, val_y, multi_val_y = get_val_data() 
     else:
-        val_X, val_y, multi_val_y = get_val_data(data_img=resnet_test_img, embedding_img_dim=2048) 
+        val_X, val_y, multi_val_y = get_val_data(data_img=resnet_test_img, embedding_img_dim=2048)
+
+    if loss_type.lower() == "soft":
+        val_y = get_soft_val_y()
 
     metric_vals = model_obj.evaluate(val_X, val_y)
     

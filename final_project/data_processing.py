@@ -120,3 +120,72 @@ def prepare_embeddings(num_words, embedding_dim, metadata):
         f.create_dataset('embedding_matrix', data=embedding_matrix)
 
     return embedding_matrix
+
+
+def get_soft_train_y(data_limit):
+    '''
+    Get Y labels for training data.
+    Each label is a weighted vector of the
+    fraction of time that an answer of that
+    id appeared in the ground truth
+    '''
+    if os.path.exists(soft_train_y_filename):
+        with h5py.File(soft_train_y_filename) as f:
+            return np.array(f['soft_train_y'])
+
+    ques_data = h5py.File(data_prepo)
+    metadata = get_metadata()
+    with open(train_annotations_path, 'r') as an_file:
+        annotations = json.loads(an_file.read())
+
+    ans_to_ix = {str(ans):int(i) for i,ans in metadata['ix_to_ans'].items()}
+    ques_annotations = {}
+    for a in annotations['annotations']:
+        ques_annotations[a['question_id']] = a
+
+    m = min(len(ques_data['question_id_train']), data_limit)
+    num_classes = 1000
+    soft_train_y = np.zeros((m, num_classes))
+
+    for i, ques_id in enumerate(ques_data['question_id_train']):
+        if i < m:
+            num_ans = len(ques_annotations[ques_id]['answers'])
+            for ans in ques_annotations[ques_id]['answers']:
+                ix = ans_to_ix.get(ans['answer'].lower())
+                ix = 1 if ix in [None, 1000] else ix
+                soft_train_y[i, ix] += 1./num_ans
+    with h5py.File(soft_train_y_filename, 'w') as f:
+        f.create_dataset('soft_train_y', data=soft_train_y)
+
+    return soft_train_y
+
+def get_soft_val_y():
+    '''
+    Get Y labels for validation data.
+    Each label is a weighted vector of the
+    fraction of time that an answer of that
+    id appeared in the ground truth
+    '''
+    ques_data = h5py.File(data_prepo)
+    metadata = get_metadata()
+    with open(val_annotations_path, 'r') as an_file:
+        annotations = json.loads(an_file.read())
+
+    ans_to_ix = {str(ans):int(i) for i,ans in metadata['ix_to_ans'].items()}
+    ques_annotations = {}
+    for a in annotations['annotations']:
+        ques_annotations[a['question_id']] = a
+
+    m = len(ques_data['question_id_test'])
+    num_classes = 1000
+    soft_val_y = np.zeros((m, num_classes))
+
+    for i, ques_id in enumerate(ques_data['question_id_test']):
+        if i < m:
+            num_ans = len(ques_annotations[ques_id]['answers'])
+            for ans in ques_annotations[ques_id]['answers']:
+                ix = ans_to_ix.get(ans['answer'].lower())
+                ix = 1 if ix in [None, 1000] else ix
+                soft_val_y[i, ix] += 1./num_ans
+
+    return soft_val_y
